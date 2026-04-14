@@ -1,0 +1,6 @@
+cmake-build*
+build/*
+bin/*
+!build/.gitkeep
+!bin/.gitkeep
+.idea
