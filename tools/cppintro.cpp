@@ -16,8 +16,8 @@
 
 /** a function. Parameters are passed by reference
  * i.e. the function operates on the actual elements it gets passed,
- * not on copies. If you modofy them inside the function, they will
- * be changes also on the caller side.**/
+ * not on copies. If you modify them inside the function, they will
+ * be changed also on the caller side.**/
 double multiply(double &a, double &b) {
     double c = 3.141592653589793;
 
@@ -88,7 +88,7 @@ int main() {
     /** The following line creates a pointer of type double.
      * A pointer holds a memory address. You can point it
      * to an already allocated region of memory, and use it to handle
-     * the data store at that address. **/
+     * the data stored at that address. **/
     double *dptr; // this is an empty pointer. it does not point to anything
 
     /** assign to the pointer the address in memory where variable
@@ -107,7 +107,7 @@ int main() {
     /** We can use pointers also to point to arrays. In fact, arrays are just
      * pointers to the beginning of the memory allocation for that array,
      * i.e. dArray is a pointer of type double storing the address in memory
-     * of the contiguous block of memory of 5 doubles. **/
+     * of the contiguous block of memory that holds 5 doubles. **/
 
     /** the following two lines are equivalent.
      *  We are pointing dptr to the beginning of the memory addressed by
@@ -149,7 +149,7 @@ int main() {
         i++;
     }
 
-    /** heap allocated memory need to be deallocated manually  **/
+    /** heap allocated memory needs to be deallocated manually  **/
     delete [] f;
 
     /** References are aliases of already existing variables.**/
@@ -158,7 +158,7 @@ int main() {
     d = 5;
     ref = 5;
 
-    /** a const reference aliases an existing varialbe but cannot
+    /** a const reference aliases an existing variable but cannot
      * overwrite its content **/
     const double &cref = d;
     double g = 6 * cref;
@@ -166,7 +166,7 @@ int main() {
 
 
     /** You can also create single variables on the
-     * stack, not just blocks of variables: **/
+     * heap, not just blocks of variables: **/
     double *single = new double;
     delete single;
 
@@ -177,7 +177,7 @@ int main() {
 
     /** Objects are instances of a class. You can define and
      * use objects as you did with simple types (int, double..).
-     * In order to use our Vec3 class we need to tell the compiler where
+     * In order to use our Vect3 class we need to tell the compiler where
      * we declared it. The compiler only needs the function signature,
      * i.e. the return type and the types of the inputs (this is why we
      * are able to separate functions declaration in .h files and definitions
