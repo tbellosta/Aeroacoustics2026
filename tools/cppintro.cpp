@@ -12,6 +12,8 @@
 //                   This software is distributed under the MIT license, see LICENSE.txt
 //
 //============================================================
+#include <vector>
+
 #include "geometry.h"
 
 /** a function. Parameters are passed by reference
@@ -67,6 +69,7 @@ int main() {
     d = 4.1;
     d = d * 3;
     d += 3;
+    d = d+3;
 
     /** You can allocate a contiguous block of memory of size
      * known at compile time (i.e. a constant) on the stack. This
@@ -207,4 +210,40 @@ int main() {
 
     /** We also defined the + operation between the Vect3 objects **/
     Vect3 pos3 = pos + pos2;
+
+    /** Add a Vect3 object to another Vect3 **/
+    pos3 += pos2;
+
+    /** Scalar product of two vectors **/
+    double result = dot(pos2,pos);
+
+    /** 2-norm of a vector **/
+    double mag = norm(pos);
+
+    /** Use of Standard Template Library containers **/
+    /** The STL contains a large set of data structures and algorithms
+     * that we can exploit e.g. vectors.
+     * Vectors are heap arrays on steroids **/
+
+    /** Create a vector of integers. Initialize the vector
+     * with 100 integers and set their value to 8 **/
+    std::vector<int> intvec(100,8);
+
+    /** get the 100th element of the vector **/
+    intvec[99] = 54;
+
+    /** resize the vector **/
+    intvec.resize(200);
+
+    /** add new elements to the end of the vector. After the following
+     * two lines the vector will contain 202 integers. **/
+    intvec.push_back(1);
+    intvec.push_back(3);
+
+
+
 }
+
+
+
+
