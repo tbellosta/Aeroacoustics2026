@@ -51,6 +51,40 @@ public:
 
 };
 
+// DataProvider
+// DataProvider::load_next(SurfaceData sData, double time)
+// bool DataProvider::has_next()
+
+class SnapshotBuffer {
+public:
+  SurfaceData prev, curr, next;
+  double t_prev, t_curr, t_next;
+
+  template<typename Provider>
+  void initialize(Provider& p) {
+    p.load_next(prev, t_prev);
+    p.load_next(curr, t_curr);
+    p.load_next(next, t_next);
+  }
+
+  template<typename Provider>
+  bool advance(Provider& p) {
+    prev = curr;
+    curr = next;
+
+    if (!p.has_next()) return false;
+
+    t_prev = t_curr;
+    t_curr = t_next;
+
+    p.load_next(next, t_next);
+
+    return true;
+  }
+
+
+};
+
 
 
 

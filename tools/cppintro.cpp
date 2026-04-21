@@ -13,6 +13,7 @@
 //
 //============================================================
 #include <vector>
+#include <iostream>
 
 #include "geometry.h"
 
@@ -54,6 +55,80 @@ double multiply3(const double &a, const double &b) {
     c = a * b;
     return c;
 }
+
+/** A parent class defining a geometric shape **/
+class Shape {
+ public:
+
+ double area;
+ std::string name;
+
+ Shape() {
+  name = "general shape";
+  area = 0;
+ }
+ virtual ~Shape() = default;
+
+ void printName() const {
+  std::cout << name << std::endl;
+ }
+
+ /** members of parent classes that are
+  * redefined (specialized) in child classes
+  * must be matked with "virtual" **/
+ virtual void computeArea() {area = 0;};
+
+};
+
+/** A child class specializing the parent class
+ * Shape to define a Triangle **/
+class Triangle : public Shape {
+private:
+ double base, height;
+ public:
+
+ Triangle() : Shape() {
+  name = "triangle";
+  base = 0;
+  height = 0;
+ }
+
+ Triangle(double base_, double height_) {
+  name = "triangle";
+  base = base_;
+  height = height_;
+ }
+
+ void computeArea() override {
+  area = base*height*0.5;
+ }
+
+};
+
+/** A child class specializing the parent class
+ * Shape to define a Circle **/
+class Circle : public Shape {
+private:
+ double radius;
+public:
+
+ Circle() : Shape() {
+  name = "circle";
+  radius = 0;
+ }
+
+ Circle(double radius_) {
+  name = "circle";
+  radius = radius_;
+ }
+
+ void computeArea() override {
+  area = M_PI*std::pow(radius, 2);
+ }
+
+};
+
+
 
 int main() {
     /** define a variable of type double.
@@ -240,6 +315,32 @@ int main() {
     intvec.push_back(1);
     intvec.push_back(3);
 
+/** Inheritation can be used to specialize a more
+ * general class without having to rewrite all common
+ * code **/
+ Shape s1;
+ s1.printName();
+
+ Triangle tri;
+ tri.printName();
+
+ /** Another more interesting use to inheritation in
+  * c++ comes from the possibility to access objects of
+  * derived (children) classes from pointers of
+  * base (parent) class. This way we can deal with
+  * a non-homogeneous collection of objects (the derived classes)
+  * from an homogeneous interface (the base class) **/
+
+ Triangle t1(1,1), t2(2,3.4);
+ Circle c1(1), c2(1.32);
+
+ std::vector<Shape*> shapes = {&t1,&t2,&c1,&c2};
+
+ for (auto shape : shapes) {
+  shape->computeArea();
+  std::cout << "object type: " << shape->name;
+  std::cout << ", area: " << shape->area << std::endl;
+ }
 
 
 }
