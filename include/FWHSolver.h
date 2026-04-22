@@ -44,6 +44,18 @@ class FWHSolver {
                 double tCurr,
                 double dt);
 
+private:
+
+    double compute_FWH_F1A(const Node& n_prev,
+                           const Node& n_curr,
+                           const Node& n_next,
+                           const Vect3& obs,
+                           double rho0,
+                           double p0,
+                           double c0,
+                           double dt,
+                           bool permeable);
+
 }
 
 #endif //FWHSOLVER_H

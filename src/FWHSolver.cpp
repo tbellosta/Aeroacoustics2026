@@ -70,10 +70,163 @@ void FWHSolver::initialize_observers(const SurfaceData& firstSnapshot,
     double t_clean_end = tSource_end + min_delay;
 
     /** @TODO need to define those first **/
-//    observer.trim_start = std::ceil((t_clean_start - t0) / observer.dt);
-//    observer.trim_end   = std::floor((t_clean_end - t0) / observer.dt);
+    observer.trim_start = std::ceil((t_clean_start - t0) / observer.dt);
+    observer.trim_end   = std::floor((t_clean_end - t0) / observer.dt);
 
 
   }
 
  }
+
+
+void FWHSolver::process(const SurfaceData& prev,
+                const SurfaceData& curr,
+                const SurfaceData& next,
+                double tCurr,
+                double dt) {
+
+  /** Main loop in the FWH computation **/
+  size_t nNodes = curr.nodes.size();
+  for (size_t iNode = 0; iNode < nNodes; iNode++) {
+
+    const Node& n_prev = prev.nodes[iNode];
+    const Node& n_curr = curr.nodes[iNode];
+    const Node& n_next = next.nodes[iNode];
+
+    for (auto& obs : observers) {
+
+      /** compute the FWH integral and then assign the computed value
+       * at the correct time in observer time history.
+       * FWH integral computation is computed at source/retarded time
+       * whereas we want the signal at the observer time. **/
+
+      double pprime = compute_FWH_F1A(n_prev,n_curr,n_next,
+                                      obs.position,
+                                      rho0,p0,c0,dt,
+                                      permeable);
+
+
+      /** Assign the computed pressure at the observer time **/
+      Vect3 r = obs.position - n_curr.x;
+
+      double tArrival = tCurr + norm(r) / c0;
+      obs.add(pprime*dt/obs.dt, tArrival);
+
+    }
+
+
+
+  }
+
+
+}
+
+
+double FWHSolver::compute_FWH_F1A(const Node& n_prev,
+                           const Node& n_curr,
+                           const Node& n_next,
+                           const Vect3& obs,
+                           double rho0,
+                           double p0,
+                           double c0,
+                           double dt,
+                           bool permeable) {
+
+  /** Computes the FWH contribution from a single surface location to a
+   * single observer location **/
+
+  /** compute geometry **/
+  Vect3 r = obs - n_curr.x;
+  double R = norm(r);
+  Vect3 r_hat = r * (1.0/R);
+
+  double S = norm(n_curr.dS);
+  Vect3 n = n_curr.dS * (1.0 / S);
+
+  double S_prev = norm(n_prev.dS);
+  Vect3 n_m = n_prev.dS * (1.0 / S_prev);
+
+  double S_next = norm(n_next.dS);
+  Vect3 n_p = n_next.dS * (1.0 / S_next);
+
+  /** Compute the velocity of the moving surface **/
+  Vect3 v_s = (n_next.x - n_prev.x) * (0.5 / dt);
+  Vect3 v_s_next = (n_next.x - n_curr.x) * (1.0 / dt);
+  Vect3 v_s_prev = (n_curr.x - n_prev.x) * (1.0 / dt);
+
+
+  /** Compute projections in the direction of the observer **/
+  double Mr = dot(v_s, r_hat) / c0;
+  Vect3 Mdot = (v_s_next - v_s_prev) * (1.0 / (dt*c0));
+  double Mdotr = dot(Mdot,r_hat);
+  double Mr1 = 1 - Mr;
+
+  /** Compute the Thickness quantities **/
+
+  Vect3 Q, Q_prev, Q_next;
+
+  if (!permeable) {
+    Q      = v_s;
+    Q_next = v_s_next;
+    Q_prev = v_s_prev;
+  } else {
+    Q = n_curr.u +  (n_curr.u - v_s) * (n_curr.rho/rho0 - 1.0);
+    /** v_s_* and n_*.u(rho) are not defined at the same time instant.
+     * @TODO interpolate n_*.solution at the staggered location **/
+    Q_prev = n_prev.u +  (n_prev.u - v_s_prev) * (n_prev.rho/rho0 - 1.0);
+    Q_next = n_next.u +  (n_next.u - v_s_next) * (n_next.rho/rho0 - 1.0);
+  }
+
+  double Qn = dot(Q,n);
+  /** @TODO if solution is interpolated at the staggered time,
+   * then divide by dt and not 2*dt **/
+  Vect3 Qdot = (Q_next - Q_prev) * (0.5 / dt);
+  double Qdotn = dot(Qdot,n);
+
+  /** Compute the loading quantities.
+   * Lij = pij + rho*ui*(uj - vj)
+   * Fi = Lij nj **/
+
+  Vect3 F, F_prev, F_next;
+
+  if (!permeable) {
+    F      = n * (n_curr.p - p0);
+    F_prev = n_m * (n_prev.p - p0);
+    F_next = n_p * (n_next.p - p0);
+  } else {
+
+    F = n * (n_curr.p - p0) + n_curr.u * dot(n_curr.u - v_s,n) * n_curr.rho;
+    /** same comment as for the thickness vector regarding the staggering of the
+     * surface velocity **/
+    F_prev = n_m * (n_prev.p - p0) + n_prev.u * dot(n_prev.u - v_s_prev,n_m) * n_prev.rho;
+    F_next = n_p * (n_next.p - p0) + n_next.u * dot(n_next.u - v_s_next,n_p) * n_next.rho;
+
+  }
+
+  /** normal time derivative **/
+  Vect3 ndot = (n_p - n_m) * (0.5 / dt);
+  double ndotQ = dot(Q,ndot);
+
+  double Fr = dot(F,r_hat);
+
+  Vect3 Fdot = (F_next - F_prev) * (0.5 / dt);
+  double Fdotr = dot(Fdot,r_hat);
+  double FM = dot(F,v_s) / c0;
+
+  double K = R*Mdotr + Mr*c0 - dot(v_s,v_s) / c0;
+
+  /** assemble the integrals **/
+  double denom = std::max(1e-12,Mr1);
+
+
+  double T1 = rho0 * (Qdotn + ndotQ) / (R*std::pow(denom,2));
+  double T2 = rho0 * Qn * K / (R*R*std::pow(denom,3));
+
+  double T3 = Fdotr / (R*std::pow(denom,2)*c0);
+  double T4 = (Fr - FM) / (R*R*denom*denom);
+  double T5 = Fr * K / (R*R * std::pow(denom,3)*c0);
+
+  return (T2+T2+T3+T4) * S / (4*M_PI);
+
+
+}

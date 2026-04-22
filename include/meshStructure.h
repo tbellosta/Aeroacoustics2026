@@ -46,6 +46,8 @@ public:
   double t0, dt;
   std::vector<double> signal;
 
+  size_t trim_start, trim_end;
+
   void initialize(double t0_, double dt_, size_t Nt_);
   void add(double value, double t_arrival);
 

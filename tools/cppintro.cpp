@@ -336,6 +336,7 @@ int main() {
 
  std::vector<Shape*> shapes = {&t1,&t2,&c1,&c2};
 
+
  for (auto shape : shapes) {
   shape->computeArea();
   std::cout << "object type: " << shape->name;
