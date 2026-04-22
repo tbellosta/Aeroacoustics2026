@@ -75,7 +75,7 @@ class Shape {
 
  /** members of parent classes that are
   * redefined (specialized) in child classes
-  * must be matked with "virtual" **/
+  * must be marked with "virtual" **/
  virtual void computeArea() {area = 0;};
 
 };
@@ -315,7 +315,7 @@ int main() {
     intvec.push_back(1);
     intvec.push_back(3);
 
-/** Inheritation can be used to specialize a more
+/** Inheritance can be used to specialize a more
  * general class without having to rewrite all common
  * code **/
  Shape s1;
@@ -324,7 +324,7 @@ int main() {
  Triangle tri;
  tri.printName();
 
- /** Another more interesting use to inheritation in
+ /** Another more interesting use to inheritance in
   * c++ comes from the possibility to access objects of
   * derived (children) classes from pointers of
   * base (parent) class. This way we can deal with
