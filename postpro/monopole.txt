@@ -1,0 +1,34 @@
+double x = sphere_nodes[i][0];
+        double y = sphere_nodes[i][1];
+        double z = sphere_nodes[i][2];
+
+        double Rstar  = std::sqrt(x*x + beta2*y*y + beta2*z*z);
+        double Rtilde = (Rstar - M0 * x) / beta2;
+        double psi    = time - Rtilde / c0;
+
+        std::complex<double> phi = A / (4.0 * M_PI * Rstar)
+                                 * std::exp(j * omega * psi);
+
+        std::complex<double> dphi_dt = j * omega * phi;
+
+        double dRs_dx = x / Rstar;
+        double dRs_dy = beta2 * y / Rstar;
+        double dRs_dz = beta2 * z / Rstar;
+
+        double dRt_dx = (x / Rstar - M0) / beta2;
+        double dRt_dy = y / Rstar;
+        double dRt_dz = z / Rstar;
+
+        std::complex<double> dphi_dx = phi * (-dRs_dx/Rstar - j*omega/c0 * dRt_dx);
+        std::complex<double> dphi_dy = phi * (-dRs_dy/Rstar - j*omega/c0 * dRt_dy);
+        std::complex<double> dphi_dz = phi * (-dRs_dz/Rstar - j*omega/c0 * dRt_dz);
+
+        double p_prime = std::real(-rho0 * (dphi_dt + U0 * dphi_dx));
+
+        data.nodes[i].p = p0 + p_prime;
+        data.nodes[i].u = Vec3(
+            U0 + std::real(dphi_dx),
+                 std::real(dphi_dy),
+                 std::real(dphi_dz)
+        );
+        data.nodes[i].rho = rho0 + p_prime / (c0 * c0);

@@ -56,6 +56,6 @@ private:
                            double dt,
                            bool permeable);
 
-}
+};
 
 #endif //FWHSOLVER_H

@@ -1,0 +1,55 @@
+double x = sphere_nodes[i][0];
+        double y = sphere_nodes[i][1];
+        double z = sphere_nodes[i][2];
+
+        double Rstar = std::sqrt(x*x + beta2*y*y + beta2*z*z);
+        double Rs2   = Rstar * Rstar;
+        double Rs3   = Rs2 * Rstar;
+        double Rs4   = Rs2 * Rs2;
+
+        double Rtilde = (Rstar - M0*x) / beta2;
+        double psi    = time - Rtilde / c0;
+
+        // --- Monopole potential ---
+        std::complex<double> phi = A / (4.0*M_PI*Rstar)
+                                 * std::exp(j * omega * psi);
+
+        // --- B_i factors:  d phi_mono / d x_i = phi * B_i ---
+        std::complex<double> B_x = -x/Rs2 - j*k*(x/Rstar - M0)/beta2;
+        std::complex<double> B_y = -beta2*y/Rs2 - j*k*y/Rstar;
+        std::complex<double> B_z = -beta2*z/Rs2 - j*k*z/Rstar;
+
+        // --- dB_i/dy  (using  dR*/dy = beta^2 y / R*) ---
+        //
+        //  dB_x/dy = 2 beta^2 x y / R*^4  + i k x y / R*^3
+        //
+        //  dB_y/dy = -beta^2/R*^2 + 2 beta^4 y^2/R*^4
+        //          - i k / R*     + i k beta^2 y^2/R*^3
+        //
+        //  dB_z/dy = 2 beta^4 y z / R*^4  + i k beta^2 y z / R*^3
+
+        std::complex<double> dBx_dy = 2.0*beta2*x*y/Rs4
+                                    + j*k*x*y/Rs3;
+
+        std::complex<double> dBy_dy = -beta2/Rs2 + 2.0*beta2*beta2*y*y/Rs4
+                                    - j*k/Rstar  + j*k*beta2*y*y/Rs3;
+
+        std::complex<double> dBz_dy = 2.0*beta2*beta2*y*z/Rs4
+                                    + j*k*beta2*y*z/Rs3;
+
+        // --- Dipole potential and its derivatives ---
+        std::complex<double> phi_dip    = phi * B_y;
+        std::complex<double> dphi_dip_dt = j * omega * phi_dip;
+
+        std::complex<double> dphi_dip_dx = phi * (B_y * B_x + dBx_dy);
+        std::complex<double> dphi_dip_dy = phi * (B_y * B_y + dBy_dy);
+        std::complex<double> dphi_dip_dz = phi * (B_y * B_z + dBz_dy);
+
+        // --- Physical fields ---
+        double p_prime = std::real(-rho0 * (dphi_dip_dt + U0 * dphi_dip_dx));
+
+        data.nodes[i].p   = p0 + p_prime;
+        data.nodes[i].u   = Vec3(U0 + std::real(dphi_dip_dx),
+                                      std::real(dphi_dip_dy),
+                                      std::real(dphi_dip_dz));
+        data.nodes[i].rho = rho0 + p_prime / (c0 * c0);
