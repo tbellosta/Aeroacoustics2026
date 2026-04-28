@@ -16,6 +16,8 @@
 #ifndef GEOMETRY_H
 #define GEOMETRY_H
 
+#include <vector>
+
 
   class Vect3 {
   private:
@@ -74,6 +76,12 @@
   Vect3 cross(const Vect3& v1, const Vect3& v2);
 
   double norm(const Vect3& v);
+
+
+void generate_icosphere(std::vector<Vect3>& nodes,
+                        std::vector<std::vector<size_t>>& elements,
+                        int n_refine,
+                        double radius);
 
 
 

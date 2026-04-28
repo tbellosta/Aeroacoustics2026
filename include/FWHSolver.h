@@ -50,11 +50,7 @@ private:
                            const Node& n_curr,
                            const Node& n_next,
                            const Vect3& obs,
-                           double rho0,
-                           double p0,
-                           double c0,
-                           double dt,
-                           bool permeable);
+                           double dt) const;
 
 };
 

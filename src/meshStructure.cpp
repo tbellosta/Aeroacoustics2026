@@ -21,7 +21,7 @@ void SurfaceData::compute_dual_geometry() {
   for (const auto& element : elements) {
     const size_t i = element[0];
     const size_t j = element[1];
-    const size_t k = element[3];
+    const size_t k = element[2];
 
     const Vect3& xi = nodes[i].x;
     const Vect3& xj = nodes[j].x;
@@ -34,7 +34,7 @@ void SurfaceData::compute_dual_geometry() {
     /** This is an approximation (works for regular trianguler grid).
      * @TODO Consider implementing proper median dual geometry. **/
     Vect3 normal = cross(v1,v2);
-    normal = normal * (0.5 / 3);
+    normal = normal * (0.5 / 3.0);
 
     nodes[i].dS += normal;
     nodes[j].dS += normal;
@@ -46,7 +46,7 @@ void SurfaceData::compute_dual_geometry() {
 
 
 
-void Observer::add(double value, double t_arrival) {
+void Observer::add(const double value, const double t_arrival) {
 
   const double idx = (t_arrival - t0) / dt;
   const int i = static_cast<int>(idx);
@@ -55,7 +55,7 @@ void Observer::add(double value, double t_arrival) {
 
   const double alpha = idx - i;
 
-  signal[i]   += value * (1 - alpha);
+  signal[i]   += value * (1.0 - alpha);
   signal[i+1] += value * alpha;
 }
 

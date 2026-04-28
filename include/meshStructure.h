@@ -71,8 +71,11 @@ public:
 
   template<typename Provider>
   bool advance(Provider& p) {
-    prev = curr;
-    curr = next;
+    /** std::moves moves resources from one object to the other.
+     *  Avoids new memory allocations. Also, operator= is not defined
+     *  for class SurfaceData... **/
+    prev = std::move(curr);
+    curr = std::move(next);
 
     if (!p.has_next()) return false;
 

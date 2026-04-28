@@ -29,7 +29,7 @@ void FWHSolver::initialize_observers(const SurfaceData& firstSnapshot,
     double min_delay = 1e200;
     double max_delay = -1e200;
 
-    for (auto& node : firstSnapshot.nodes) {
+    for (const auto& node : firstSnapshot.nodes) {
 
       Vect3 R = observer.position - node.x;
       double delay = norm(R) / c0;
@@ -54,7 +54,7 @@ void FWHSolver::initialize_observers(const SurfaceData& firstSnapshot,
       * We match dt and stretch tEnd. **/
     tEnd = t0 + (Nt-1) * observer.dt;
 
-    observer.initialize(t0, tEnd, Nt);
+    observer.initialize(t0, observer.dt, Nt);
 
     /** We can also take care of the "transient"
       * initial and final samples of the observer history.
@@ -101,15 +101,13 @@ void FWHSolver::process(const SurfaceData& prev,
        * whereas we want the signal at the observer time. **/
 
       double pprime = compute_FWH_F1A(n_prev,n_curr,n_next,
-                                      obs.position,
-                                      rho0,p0,c0,dt,
-                                      permeable);
+                                      obs.position,dt);
 
 
       /** Assign the computed pressure at the observer time **/
       Vect3 r = obs.position - n_curr.x;
 
-      double tArrival = tCurr + norm(r) / c0;
+      double tArrival = tCurr + (norm(r) / c0);
       obs.add(pprime*dt/obs.dt, tArrival);
 
     }
@@ -126,40 +124,36 @@ double FWHSolver::compute_FWH_F1A(const Node& n_prev,
                            const Node& n_curr,
                            const Node& n_next,
                            const Vect3& obs,
-                           double rho0,
-                           double p0,
-                           double c0,
-                           double dt,
-                           bool permeable) {
+                           double dt) const {
 
   /** Computes the FWH contribution from a single surface location to a
    * single observer location **/
 
   /** compute geometry **/
-  Vect3 r = obs - n_curr.x;
-  double R = norm(r);
-  Vect3 r_hat = r * (1.0/R);
+  const Vect3 r = obs - n_curr.x;
+  const double R = norm(r);
+  const Vect3 r_hat = r * (1.0/R);
 
-  double S = norm(n_curr.dS);
-  Vect3 n = n_curr.dS * (1.0 / S);
+  const double S = norm(n_curr.dS);
+  const Vect3 n = n_curr.dS * (1.0 / S);
 
-  double S_prev = norm(n_prev.dS);
-  Vect3 n_m = n_prev.dS * (1.0 / S_prev);
+  const double S_prev = norm(n_prev.dS);
+  const Vect3 n_m = n_prev.dS * (1.0 / S_prev);
 
-  double S_next = norm(n_next.dS);
-  Vect3 n_p = n_next.dS * (1.0 / S_next);
+  const double S_next = norm(n_next.dS);
+  const Vect3 n_p = n_next.dS * (1.0 / S_next);
 
   /** Compute the velocity of the moving surface **/
-  Vect3 v_s = (n_next.x - n_prev.x) * (0.5 / dt);
-  Vect3 v_s_next = (n_next.x - n_curr.x) * (1.0 / dt);
-  Vect3 v_s_prev = (n_curr.x - n_prev.x) * (1.0 / dt);
+  const Vect3 v_s = (n_next.x - n_prev.x) * (0.5 / dt);
+  const Vect3 v_s_next = (n_next.x - n_curr.x) * (1.0 / dt);
+  const Vect3 v_s_prev = (n_curr.x - n_prev.x) * (1.0 / dt);
 
 
   /** Compute projections in the direction of the observer **/
-  double Mr = dot(v_s, r_hat) / c0;
-  Vect3 Mdot = (v_s_next - v_s_prev) * (1.0 / (dt*c0));
-  double Mdotr = dot(Mdot,r_hat);
-  double Mr1 = 1 - Mr;
+  const double Mr = dot(v_s, r_hat) / c0;
+  const Vect3 Mdot = (v_s_next - v_s_prev) * (1.0 / (dt*c0));
+  const double Mdotr = dot(Mdot,r_hat);
+  const double Mr1 = 1.0 - Mr;
 
   /** Compute the Thickness quantities **/
 
@@ -190,7 +184,7 @@ double FWHSolver::compute_FWH_F1A(const Node& n_prev,
   Vect3 F, F_prev, F_next;
 
   if (!permeable) {
-    F      = n * (n_curr.p - p0);
+    F      = n   * (n_curr.p - p0);
     F_prev = n_m * (n_prev.p - p0);
     F_next = n_p * (n_next.p - p0);
   } else {
@@ -219,14 +213,14 @@ double FWHSolver::compute_FWH_F1A(const Node& n_prev,
   double denom = std::max(1e-12,Mr1);
 
 
-  double T1 = rho0 * (Qdotn + ndotQ) / (R*std::pow(denom,2));
-  double T2 = rho0 * Qn * K / (R*R*std::pow(denom,3));
+  const double T1 = rho0 * (Qdotn + ndotQ) / (R*std::pow(denom,2));
+  const double T2 = rho0 * Qn * K / (R*R*std::pow(denom,3));
 
-  double T3 = Fdotr / (R*std::pow(denom,2)*c0);
-  double T4 = (Fr - FM) / (R*R*denom*denom);
-  double T5 = Fr * K / (R*R * std::pow(denom,3)*c0);
+  const double L1 = Fdotr / (R*std::pow(denom,2)*c0);
+  const double L2 = (Fr - FM) / (R*R*denom*denom);
+  const double L3 = Fr * K / (R*R * std::pow(denom,3)*c0);
 
-  return (T2+T2+T3+T4) * S / (4*M_PI);
+  return (T1+T2+L1+L2+L3) * S / (4*M_PI);
 
 
 }
