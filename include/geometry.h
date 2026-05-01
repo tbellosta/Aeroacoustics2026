@@ -17,6 +17,9 @@
 #define GEOMETRY_H
 
 #include <vector>
+#include <cmath>
+
+using std::size_t;
 
 
   class Vect3 {
