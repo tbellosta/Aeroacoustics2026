@@ -2,7 +2,7 @@
 //
 //      Type:        FWH include file
 //
-//      Author:      Tommaso Bellosta on 27/04/26.
+//      Author:      Tommaso Bellosta on 29/04/26.
 //                   Dipartimento di Scienze e Tecnologie Aerospaziali
 //                   Politecnico di Milano
 //                   Via La Masa 34, 20156 Milano, ITALY
@@ -16,6 +16,7 @@
 #include "DataProvider.h"
 
 #include <fstream>
+#include <numeric>
 
 int main() {
 
@@ -29,7 +30,7 @@ int main() {
   size_t nsteps = 12000;
 
   /** This is the data provider **/
-  AnaliticalMonopoleProvider provider(A,frq,src_dt,nsteps,r,nRefine);
+  AnaliticalDipoleProvider provider(A,frq,src_dt,nsteps,r,nRefine);
 
   /** This stores the 3 snapshots and cycles them **/
   SnapshotBuffer buffer;
@@ -41,12 +42,16 @@ int main() {
   solver.M0_flow  = Vect3(0.0, 0.0, 0.0); // no mean convection
 
   /** define a microphone array **/
-  double R = 50.0;
+  double R = 2.0;
   size_t nMics = 72;
+
+  /** define small angular offset so that mics are not aligned with x-axis **/
+  double off_deg = 1.0;
+  double off_rad = off_deg * M_PI / 180.0;
 
   /** initializes the mics positions and store the observer into the solver object **/
   for (size_t m = 0; m < nMics; m++) {
-    double theta = 2.0 * M_PI * m / nMics;
+    double theta = off_rad + 2.0 * M_PI * m / nMics;
     Observer obs;
     obs.position = Vect3(R * std::cos(theta),
                          R * std::sin(theta),
@@ -83,8 +88,14 @@ int main() {
   std::ofstream out("directivity.dat");
   out << "# theta[deg] SPL_FWH[dB] p_rms_FWH[Pa] SPL_exact[dB] p_rms_exact[Pa]\n";
 
+  /** create structure to circle over all mics plus tmic 0 again **/
+  std::vector<size_t> loop(nMics+1,0);
+  std::iota(loop.begin(),loop.end(),0);
+  loop[nMics] = 0;
 
-  for (size_t iMic = 0; iMic < nMics; iMic++) {
+
+
+  for (size_t iMic : loop) {
     /** get the time history at the mic and compute the rms **/
    auto& obs = solver.observers[iMic];
 
@@ -130,7 +141,7 @@ int main() {
     double SPL_exact = 20.0 * std::log10(std::max(rms_exact,1e-30) / p_ref);
 
     /** compute mic position **/
-    double theta_deg = 360.0 * iMic / nMics;
+    double theta_deg = off_deg + 360.0 * iMic / nMics;
 
     /** print to file **/
     out << theta_deg << " "
