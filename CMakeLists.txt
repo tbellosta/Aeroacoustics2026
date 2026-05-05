@@ -46,6 +46,10 @@ find_package(VTK
         IOXML
 )
 
+find_package(OpenMP REQUIRED)
+
+find_package(MPI REQUIRED)
+include_directories(${MPI_INCLUDE_PATH})
 
 set(CMAKE_RUNTIME_OUTPUT_DIRECTORY ${BIN_DIR})
 set(CMAKE_LIBRARY_OUTPUT_DIRECTORY ${BIN_DIR})
@@ -53,12 +57,20 @@ set(CMAKE_ARCHIVE_OUTPUT_DIRECTORY ${BIN_DIR})
 
 # -------------------------------------------------------------------------------------- FWH
 add_library(${PROJECT_NAME} ${SOURCE} ${LIB_HEADERS})
-target_link_libraries(${PROJECT_NAME} ${VTK_LIBRARIES})
+target_link_libraries(${PROJECT_NAME} ${MPI_CXX_LIBRARIES} OpenMP::OpenMP_CXX ${VTK_LIBRARIES})
 
 vtk_module_autoinit(
         TARGETS ${PROJECT_NAME}
         MODULES ${VTK_LIBRARIES}
 )
+
+if(MPI_COMPILE_FLAGS)
+    set_target_properties(${PROJECT_NAME} PROPERTIES COMPILE_FLAGS "${MPI_COMPILE_FLAGS}")
+endif()
+
+if(MPI_LINK_FLAGS)
+    set_target_properties(${PROJECT_NAME} PROPERTIES LINK_FLAGS "${MPI_LINK_FLAGS}")
+endif()
 
 
 
@@ -73,7 +85,7 @@ foreach( sourcefile ${TOOLS} )
         set(file ${PROJECT_NAME}-bin)
     endif()
     add_executable( ${file} ${sourcefile} )
-    target_link_libraries( ${file} ${PROJECT_NAME})
+    target_link_libraries( ${file} ${PROJECT_NAME} ${MPI_CXX_LIBRARIES} OpenMP::OpenMP_CXX)
 endforeach( sourcefile ${TOOLS} )
 
 
