@@ -40,9 +40,8 @@ public:
   size_t n_refine;
 
   AnaliticalMonopoleProvider(double ampl_, double freq_, double dt_,
-                             size_t nsteps_, double r_ = 1, size_t nrefine_ = 2,
-                             double c0_ = 340.0, double rho0_ = 1.2, double p0_ = 101325.0,
-                             double M0_ = 0.0);
+                             size_t nsteps_, double r_ = 1, size_t nrefine_ = 2, double M0_ = 0.0,
+                             double c0_ = 340.0, double rho0_ = 1.2, double p0_ = 101325.0);
 
   bool has_next() const;
   void load_next(SurfaceData& sData, double& time);
@@ -74,9 +73,8 @@ public:
     size_t n_refine;
 
     AnaliticalDipoleProvider(double ampl_, double freq_, double dt_,
-                               size_t nsteps_, double r_ = 1, size_t nrefine_ = 2,
-                               double c0_ = 340.0, double rho0_ = 1.2, double p0_ = 101325.0,
-                               double M0_ = 0.0);
+                               size_t nsteps_, double r_ = 1, size_t nrefine_ = 2, double M0_ = 0.0,
+                               double c0_ = 340.0, double rho0_ = 1.2, double p0_ = 101325.0);
 
     bool has_next() const;
     void load_next(SurfaceData& sData, double& time);

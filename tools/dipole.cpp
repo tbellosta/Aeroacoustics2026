@@ -28,9 +28,12 @@ int main() {
 
   double src_dt = 1e-4;
   size_t nsteps = 12000;
+  double M0_x = 0.9;
+
+  Vect3 M0 = Vect3(M0_x, 0, 0);
 
   /** This is the data provider **/
-  AnaliticalDipoleProvider provider(A,frq,src_dt,nsteps,r,nRefine);
+  AnaliticalDipoleProvider provider(A,frq,src_dt,nsteps,r,nRefine,M0_x);
 
   /** This stores the 3 snapshots and cycles them **/
   SnapshotBuffer buffer;
@@ -39,10 +42,10 @@ int main() {
   /** the solver object **/
   FWHSolver solver;
   solver.permeable = true; // tells the solver we want the permeable surface formulation
-  solver.M0_flow  = Vect3(0.0, 0.0, 0.0); // no mean convection
+  solver.M0_flow  = M0; // mean convection
 
   /** define a microphone array **/
-  double R = 2.0;
+  double R = 10.0;
   size_t nMics = 72;
 
   /** define small angular offset so that mics are not aligned with x-axis **/

@@ -31,8 +31,13 @@ void FWHSolver::initialize_observers(const SurfaceData& firstSnapshot,
 
     for (const auto& node : firstSnapshot.nodes) {
 
-      Vect3 R = observer.position - node.x;
-      double delay = norm(R) / c0;
+      Vect3 Delta = observer.position - node.x;
+      double beta2 = 1.0 - dot(M0_flow,M0_flow);
+      double Mr = dot(M0_flow,Delta);
+      double D2 = dot(Delta,Delta);
+
+      // double delay = norm(R) / c0;
+      double delay = (std::sqrt(D2*beta2 + Mr*Mr) - Mr) / (beta2 * c0);
 
       min_delay = std::min(min_delay, delay);
       max_delay = std::max(max_delay, delay);
@@ -105,9 +110,15 @@ void FWHSolver::process(const SurfaceData& prev,
 
 
       /** Assign the computed pressure at the observer time **/
-      Vect3 r = obs.position - n_curr.x;
+      Vect3 Delta = obs.position - n_curr.x;
+      double beta2 = 1.0 - dot(M0_flow,M0_flow);
+      double Mr = dot(M0_flow,Delta);
+      double D2 = dot(Delta,Delta);
 
-      double tArrival = tCurr + (norm(r) / c0);
+      // double delay = norm(R) / c0;
+      double delay = (std::sqrt(D2*beta2 + Mr*Mr) - Mr) / (beta2 * c0);
+
+      double tArrival = tCurr + delay;
       obs.add(pprime*dt/obs.dt, tArrival);
 
     }
@@ -129,10 +140,17 @@ double FWHSolver::compute_FWH_F1A(const Node& n_prev,
   /** Computes the FWH contribution from a single surface location to a
    * single observer location **/
 
+  const Vect3 Uinf = M0_flow * c0;
+
   /** compute geometry **/
-  const Vect3 r = obs - n_curr.x;
-  const double R = norm(r);
-  const Vect3 r_hat = r * (1.0/R);
+  const Vect3 Delta = obs - n_curr.x;
+  double beta2 = 1.0 - dot(M0_flow,M0_flow);
+  double D2 = dot(Delta,Delta);
+  double M0dotDelta = dot(M0_flow,Delta);
+  const double R = (std::sqrt(D2*beta2 + M0dotDelta*M0dotDelta) - M0dotDelta) / (beta2);
+
+  Vect3 r_hat = (Delta - M0_flow * R);
+  r_hat = r_hat * (1.0 / R);
 
   const double S = norm(n_curr.dS);
   const Vect3 n = n_curr.dS * (1.0 / S);
@@ -144,9 +162,9 @@ double FWHSolver::compute_FWH_F1A(const Node& n_prev,
   const Vect3 n_p = n_next.dS * (1.0 / S_next);
 
   /** Compute the velocity of the moving surface **/
-  const Vect3 v_s = (n_next.x - n_prev.x) * (0.5 / dt);
-  const Vect3 v_s_next = (n_next.x - n_curr.x) * (1.0 / dt);
-  const Vect3 v_s_prev = (n_curr.x - n_prev.x) * (1.0 / dt);
+  const Vect3 v_s = (n_next.x - n_prev.x) * (0.5 / dt) - Uinf;
+  const Vect3 v_s_next = (n_next.x - n_curr.x) * (1.0 / dt) - Uinf;
+  const Vect3 v_s_prev = (n_curr.x - n_prev.x) * (1.0 / dt) - Uinf;
 
 
   /** Compute projections in the direction of the observer **/
@@ -164,11 +182,14 @@ double FWHSolver::compute_FWH_F1A(const Node& n_prev,
     Q_next = v_s_next;
     Q_prev = v_s_prev;
   } else {
-    Q = n_curr.u +  (n_curr.u - v_s) * (n_curr.rho/rho0 - 1.0);
+    const Vect3 uRel_curr = n_curr.u - Uinf;
+    const Vect3 uRel_prev = n_prev.u - Uinf;
+    const Vect3 uRel_next = n_next.u - Uinf;
+    Q = uRel_curr +  (uRel_curr - v_s) * (n_curr.rho/rho0 - 1.0);
     /** v_s_* and n_*.u(rho) are not defined at the same time instant.
      * @TODO interpolate n_*.solution at the staggered location **/
-    Q_prev = n_prev.u +  (n_prev.u - v_s_prev) * (n_prev.rho/rho0 - 1.0);
-    Q_next = n_next.u +  (n_next.u - v_s_next) * (n_next.rho/rho0 - 1.0);
+    Q_prev = uRel_prev +  (uRel_prev - v_s_prev) * (n_prev.rho/rho0 - 1.0);
+    Q_next = uRel_next +  (uRel_next - v_s_next) * (n_next.rho/rho0 - 1.0);
   }
 
   double Qn = dot(Q,n);
@@ -189,11 +210,15 @@ double FWHSolver::compute_FWH_F1A(const Node& n_prev,
     F_next = n_p * (n_next.p - p0);
   } else {
 
-    F = n * (n_curr.p - p0) + n_curr.u * dot(n_curr.u - v_s,n) * n_curr.rho;
+    const Vect3 uRel_curr = n_curr.u - Uinf;
+    const Vect3 uRel_prev = n_prev.u - Uinf;
+    const Vect3 uRel_next = n_next.u - Uinf;
+
+    F = n * (n_curr.p - p0) + uRel_curr * dot(uRel_curr - v_s,n) * n_curr.rho;
     /** same comment as for the thickness vector regarding the staggering of the
      * surface velocity **/
-    F_prev = n_m * (n_prev.p - p0) + n_prev.u * dot(n_prev.u - v_s_prev,n_m) * n_prev.rho;
-    F_next = n_p * (n_next.p - p0) + n_next.u * dot(n_next.u - v_s_next,n_p) * n_next.rho;
+    F_prev = n_m * (n_prev.p - p0) + uRel_prev * dot(uRel_prev - v_s_prev,n_m) * n_prev.rho;
+    F_next = n_p * (n_next.p - p0) + uRel_next * dot(uRel_next - v_s_next,n_p) * n_next.rho;
 
   }
 

@@ -18,9 +18,8 @@
 #include "DataProvider.h"
 
 AnaliticalMonopoleProvider::AnaliticalMonopoleProvider(double ampl_, double freq_, double dt_,
-                             size_t nsteps_, double r_, size_t nrefine_,
-                             double c0_, double rho0_, double p0_,
-                             double M0_) {
+                             size_t nsteps_, double r_, size_t nrefine_, double M0_,
+                             double c0_, double rho0_, double p0_) {
 
   A = ampl_;
   f = freq_;
@@ -150,9 +149,8 @@ double AnaliticalMonopoleProvider::exact_presure_at(double x, double y, double z
 
 
 AnaliticalDipoleProvider::AnaliticalDipoleProvider(double ampl_, double freq_, double dt_,
-                               size_t nsteps_, double r_, size_t nrefine_,
-                               double c0_, double rho0_, double p0_,
-                               double M0_) {
+                               size_t nsteps_, double r_, size_t nrefine_, double M0_,
+                               double c0_, double rho0_, double p0_) {
 
     A = ampl_;
     f = freq_;
