@@ -23,6 +23,20 @@
 #include <iomanip>
 #include <mpi.h>
 
+/** generate a structured half-sphere to map
+* half plane directivity **/
+std::vector<Vect3> generateHemisphere(
+    double radius,
+    int nTheta,
+    int nPhi);
+
+/** generate vector of filenames for all input
+* FWH surface snapshots **/
+std::vector<std::string> generateFileNames(
+    const std::string& firstFileName,
+    double delta, double nFiles
+);
+
 int main(int argc, char** argv) {
 
   MPI_Init(&argc, &argv);
@@ -41,34 +55,7 @@ int main(int argc, char** argv) {
   std::string fileBase = "/home/bellosta/Documents/AEROACOUSTICS/HOVER/FWH/bin/surface_flow_01080.vtu";
 
   /** create a vector with the path to all snapshots **/
-  std::regex pattern(R"((.*?)(\d+)(\.[^.]+)$)");
-  std::smatch match;
-
-  std::vector<std::string> filenames;
-
-  if (std::regex_match(fileBase, match, pattern)) {
-
-    std::string prefix = match[1];      // "/home/bellosta/HOVER/surface_flow_"
-    std::string numberStr = match[2];   // "01080"
-    std::string suffix = match[3];      // ".vtu"
-
-    int start = std::stoi(numberStr);
-    int width = numberStr.size(); // preserve leading zeros
-
-    int delta = 1;
-    int nFiles = nsteps;
-
-    for (int i = 0; i < nFiles; ++i) {
-      std::ostringstream oss;
-      oss << prefix
-          << std::setw(width)
-          << std::setfill('0')
-          << (start + i * delta)
-          << suffix;
-
-      filenames.push_back(oss.str());
-    }
-  }
+  const auto filenames = generateFileNames(fileBase,1,nsteps);
 
   /** This is the data provider **/
   VTUProvider provider(src_dt, filenames);
@@ -80,12 +67,13 @@ int main(int argc, char** argv) {
 
   /** the solver object **/
   FWHSolver solver;
-  solver.permeable = false; // tells the solver we want the permeable surface formulation
-  solver.M0_flow  = M0; // mean convection
+  solver.permeable = false; // tells the solver we want the solid surface formulation
+  solver.M0_flow  = M0; // no mean convection
 
   /** define a microphone array **/
   double R = 10.0;
-  size_t nMicsGlobal = 72;
+  auto pnts = generateHemisphere(R, 18, 72);
+  size_t nMicsGlobal = pnts.size();
   size_t nMicsLocal;
 
   /** define small angular offset so that mics are not aligned with x-axis **/
@@ -100,14 +88,18 @@ int main(int argc, char** argv) {
 
   /** initializes the mics positions and store the observer into the solver object **/
   for (size_t m = iMicStart; m < iMicEnd; m++) {
-    double theta = off_rad + 2.0 * M_PI * m / nMicsGlobal;
     Observer obs;
-    obs.position = Vect3(R * std::cos(theta),
-                         0.0,
-                         R * std::sin(theta));
+
+    /** uncomment for simple microphone arch in xz plane **/
+//    double theta = off_rad + 2.0 * M_PI * m / nMicsGlobal;
+//    obs.position = Vect3(R * std::cos(theta),
+//                         0.0,
+//                         R * std::sin(theta));
+
+    /** This computes the whole half sphere directivity **/
+    obs.position = pnts[m];
 
     obs.dt = 1 * src_dt;
-
     solver.observers.push_back(obs);
 
   }
@@ -133,18 +125,20 @@ int main(int argc, char** argv) {
 
 
   /** postprocessing the result **/
-    /** save both the time histories at the mic positions as well as the directivity **/
+  /** save both the time histories at the mic positions
+   *  as well as the directivity **/
   double p_ref = 2.0e-5;
 
   /** need to communicate data needed for printing the directivity file.
-   * MPI_Gather **/
+   * we will use MPI_Gather **/
 
+  /** flatten the data to be communicated **/
   size_t nFields = 3;
   std::vector<double> data_local(nMicsLocal*nFields);
 
 
   for (size_t iMic = 0; iMic < nMicsLocal; iMic++) {
-    /** get the time history at the mic and compute the rms **/
+   /** get the time history at the mic and compute the rms **/
    const auto& obs = solver.observers[iMic];
 
    double rms_fwh = 0, mean_fwh = 0;
@@ -208,19 +202,19 @@ int main(int argc, char** argv) {
     if (rank == size - 1)
         MPI_Send(data_local.data()+chunk_size*nFields,
              remainder*nFields,
-                   MPI_DOUBLE,
+             MPI_DOUBLE,
              0,
              0,
              MPI_COMM_WORLD);
 
     if (rank == 0)
         MPI_Recv(data_global.data()+(size*chunk_size*nFields),
-        remainder*nFields,
-        MPI_DOUBLE,
-        size-1,
-        0,
-        MPI_COMM_WORLD,
-        MPI_STATUS_IGNORE);
+            remainder*nFields,
+            MPI_DOUBLE,
+            size-1,
+            0,
+            MPI_COMM_WORLD,
+            MPI_STATUS_IGNORE);
 
   }
 
@@ -272,3 +266,72 @@ int main(int argc, char** argv) {
   MPI_Finalize();
 
 }
+
+
+std::vector<Vect3> generateHemisphere(
+    double radius,
+    int nTheta,
+    int nPhi)
+{
+  std::vector<Vect3> points;
+
+  const double pi = std::acos(-1.0);
+
+  for (int i = 0; i < nTheta; ++i) {
+    // theta in [0, pi/2]
+    double theta =
+        (static_cast<double>(i) / (nTheta - 1))
+        * (pi / 2.0);
+
+    for (int j = 0; j < nPhi; ++j) {
+      // phi in [0, 2pi)
+      double phi =
+          (static_cast<double>(j) / nPhi)
+          * (2.0 * pi);
+
+      Vect3 p;
+      p[0] = radius * std::sin(theta) * std::cos(phi);
+      p[1] = radius * std::sin(theta) * std::sin(phi);
+      p[2] = radius * std::cos(theta);
+
+      points.push_back(p);
+    }
+  }
+
+  return points;
+}
+
+
+std::vector<std::string> generateFileNames(
+    const std::string& firstFileName,
+    size_t delta, size_t nFiles)
+{
+
+    std::regex pattern(R"((.*?)(\d+)(\.[^.]+)$)");
+    std::smatch match;
+
+    std::vector<std::string> filenames;
+
+    if (std::regex_match(firstFileName, match, pattern)) {
+
+        std::string prefix = match[1];      // "/home/user/.../surface_flow_"
+        std::string numberStr = match[2];   // "01080"
+        std::string suffix = match[3];      // ".vtu"
+
+        int start = std::stoi(numberStr);
+        int width = numberStr.size(); // preserve leading zeros
+
+        for (int i = 0; i < nFiles; ++i) {
+            std::ostringstream oss;
+            oss << prefix
+                << std::setw(width)
+                << std::setfill('0')
+                << (start + i * delta)
+                << suffix;
+
+            filenames.push_back(oss.str());
+        }
+    }
+
+    return filenames;
+  }
