@@ -472,11 +472,15 @@ void VTUProvider::load_next(SurfaceData& data, double& time) {
             data.nodes[i].x[d] = x[d];
     }
 
-    auto p_array = grid->GetPointData()->GetArray("p");
+    auto p_array = grid->GetPointData()->GetArray("Pressure");
     for (int i = 0; i < N; ++i)
         data.nodes[i].p = p_array->GetTuple1(i);
 
-    auto u_array = grid->GetPointData()->GetArray("U");
+    auto rho_array = grid->GetPointData()->GetArray("Density");
+    for (int i = 0; i < N; ++i)
+        data.nodes[i].rho = rho_array->GetTuple1(i);
+
+    auto u_array = grid->GetPointData()->GetArray("Velocity");
     for (int i = 0; i < N; ++i) {
         double u[3];
         u_array->GetTuple(i, u);
