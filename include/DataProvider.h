@@ -17,6 +17,8 @@
 
 #include "meshStructure.h"
 
+#include <string>
+
 /** Classes that feed data into out SnapshotBuffer objects **/
 
 class AnaliticalMonopoleProvider {
