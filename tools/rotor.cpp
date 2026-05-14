@@ -33,12 +33,12 @@ int main(int argc, char** argv) {
 
   /** input data characteristics **/
   double src_dt = 0.00006309165952;
-  size_t nsteps = 720;
+  size_t nsteps = 2520;
   double M0_x = 0.0;
 
   Vect3 M0 = Vect3(M0_x, 0, 0);
 
-  std::string fileBase = "/home/bellosta/HOVER/surface_flow_01080.vtu";
+  std::string fileBase = "/home/bellosta/Documents/AEROACOUSTICS/HOVER/FWH/bin/surface_flow_01080.vtu";
 
   /** create a vector with the path to all snapshots **/
   std::regex pattern(R"((.*?)(\d+)(\.[^.]+)$)");
@@ -89,7 +89,7 @@ int main(int argc, char** argv) {
   size_t nMicsLocal;
 
   /** define small angular offset so that mics are not aligned with x-axis **/
-  double off_deg = 1.0;
+  double off_deg = 0.0;
   double off_rad = off_deg * M_PI / 180.0;
 
   /** MPI split the mics in between ranks **/
@@ -103,9 +103,10 @@ int main(int argc, char** argv) {
     double theta = off_rad + 2.0 * M_PI * m / nMicsGlobal;
     Observer obs;
     obs.position = Vect3(R * std::cos(theta),
-                         R * std::sin(theta),
-                         0.0);
-    obs.dt = 10 * src_dt;
+                         0.0,
+                         R * std::sin(theta));
+
+    obs.dt = 1 * src_dt;
 
     solver.observers.push_back(obs);
 

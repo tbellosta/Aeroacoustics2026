@@ -173,6 +173,23 @@ double FWHSolver::compute_FWH_F1A(const Node& n_prev,
   const double Mdotr = dot(Mdot,r_hat);
   const double Mr1 = 1.0 - Mr;
 
+  /** interpolate values at staggered time
+   * locations t_k-1/2, t_k+1/2 **/
+  const double p_prev_stag = (n_curr.p + n_prev.p) * 0.5;
+  const double p_next_stag = (n_curr.p + n_next.p) * 0.5;
+
+  const double rho_prev_stag = (n_curr.rho + n_prev.rho) * 0.5;
+  const double rho_next_stag = (n_curr.rho + n_next.rho) * 0.5;
+
+  const auto u_prev_stag = (n_curr.u + n_prev.u) * 0.5;
+  const auto u_next_stag = (n_curr.u + n_next.u) * 0.5;
+
+  auto n_m_stag = (n + n_m) * 0.5;
+  n_m_stag = n_m_stag * (1.0 / norm(n_m_stag));
+
+  auto n_p_stag = (n + n_p) * 0.5;
+  n_p_stag = n_p_stag * (1.0 / norm(n_p_stag));
+
   /** Compute the Thickness quantities **/
 
   Vect3 Q, Q_prev, Q_next;
@@ -183,19 +200,19 @@ double FWHSolver::compute_FWH_F1A(const Node& n_prev,
     Q_prev = v_s_prev;
   } else {
     const Vect3 uRel_curr = n_curr.u - Uinf;
-    const Vect3 uRel_prev = n_prev.u - Uinf;
-    const Vect3 uRel_next = n_next.u - Uinf;
+    const Vect3 uRel_prev = u_prev_stag - Uinf;
+    const Vect3 uRel_next = u_next_stag - Uinf;
     Q = uRel_curr +  (uRel_curr - v_s) * (n_curr.rho/rho0 - 1.0);
     /** v_s_* and n_*.u(rho) are not defined at the same time instant.
      * @TODO interpolate n_*.solution at the staggered location **/
-    Q_prev = uRel_prev +  (uRel_prev - v_s_prev) * (n_prev.rho/rho0 - 1.0);
-    Q_next = uRel_next +  (uRel_next - v_s_next) * (n_next.rho/rho0 - 1.0);
+    Q_prev = uRel_prev +  (uRel_prev - v_s_prev) * (rho_prev_stag/rho0 - 1.0);
+    Q_next = uRel_next +  (uRel_next - v_s_next) * (rho_next_stag/rho0 - 1.0);
   }
 
   double Qn = dot(Q,n);
   /** @TODO if solution is interpolated at the staggered time,
    * then divide by dt and not 2*dt **/
-  Vect3 Qdot = (Q_next - Q_prev) * (0.5 / dt);
+  Vect3 Qdot = (Q_next - Q_prev) * (1.0 / dt);
   double Qdotn = dot(Qdot,n);
 
   /** Compute the loading quantities.
@@ -206,19 +223,19 @@ double FWHSolver::compute_FWH_F1A(const Node& n_prev,
 
   if (!permeable) {
     F      = n   * (n_curr.p - p0);
-    F_prev = n_m * (n_prev.p - p0);
-    F_next = n_p * (n_next.p - p0);
+    F_prev = n_m_stag * (p_prev_stag - p0);
+    F_next = n_p_stag * (p_next_stag - p0);
   } else {
 
     const Vect3 uRel_curr = n_curr.u - Uinf;
-    const Vect3 uRel_prev = n_prev.u - Uinf;
-    const Vect3 uRel_next = n_next.u - Uinf;
+    const Vect3 uRel_prev = u_prev_stag - Uinf;
+    const Vect3 uRel_next = u_next_stag - Uinf;
 
     F = n * (n_curr.p - p0) + uRel_curr * dot(uRel_curr - v_s,n) * n_curr.rho;
     /** same comment as for the thickness vector regarding the staggering of the
      * surface velocity **/
-    F_prev = n_m * (n_prev.p - p0) + uRel_prev * dot(uRel_prev - v_s_prev,n_m) * n_prev.rho;
-    F_next = n_p * (n_next.p - p0) + uRel_next * dot(uRel_next - v_s_next,n_p) * n_next.rho;
+    F_prev = n_m_stag * (p_prev_stag - p0) + uRel_prev * dot(uRel_prev - v_s_prev,n_m_stag) * rho_prev_stag;
+    F_next = n_p_stag * (p_next_stag - p0) + uRel_next * dot(uRel_next - v_s_next,n_p_stag) * rho_next_stag;
 
   }
 
@@ -228,7 +245,7 @@ double FWHSolver::compute_FWH_F1A(const Node& n_prev,
 
   double Fr = dot(F,r_hat);
 
-  Vect3 Fdot = (F_next - F_prev) * (0.5 / dt);
+  Vect3 Fdot = (F_next - F_prev) * (1.0 / dt);
   double Fdotr = dot(Fdot,r_hat);
   double FM = dot(F,v_s) / c0;
 
