@@ -455,6 +455,7 @@ bool VTUProvider::has_next() const {
 void VTUProvider::load_next(SurfaceData& data, double& time) {
 
     std::string file = filenames[step];
+    time = step * dt;
 
     vtkNew<vtkXMLUnstructuredGridReader> reader;
     reader->SetFileName(file.c_str());

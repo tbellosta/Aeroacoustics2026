@@ -13,7 +13,9 @@
 //
 //============================================================
 #include "meshStructure.h"
+
 #include <stdexcept>
+#include <array>
 
 void SurfaceData::compute_dual_geometry() {
 
