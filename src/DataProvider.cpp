@@ -13,6 +13,10 @@
 //
 //============================================================
 
+#include <vtkXMLUnstructuredGridReader.h>
+#include <vtkUnstructuredGrid.h>
+#include <vtkPointData.h>
+
 #include <complex>
 
 #include "DataProvider.h"
@@ -434,4 +438,65 @@ void MovingMonopoleProvider::load_next(SurfaceData& sData, double& time) {
 
     step++;
 
+}
+
+
+VTUProvider::VTUProvider(double dt_, const std::vector<std::string> &filenames_) {
+
+    dt = dt_;
+    filenames = filenames_;
+
+}
+
+bool VTUProvider::has_next() const {
+    return step < filenames.size();
+}
+
+void VTUProvider::load_next(SurfaceData& data, double& time) {
+
+    std::string file = filenames[step];
+
+    vtkNew<vtkXMLUnstructuredGridReader> reader;
+    reader->SetFileName(file.c_str());
+    reader->Update();
+
+    auto grid = reader->GetOutput();
+
+    auto N = grid->GetNumberOfPoints();
+    data.nodes.resize(N);
+
+    for (int i = 0; i < N; ++i) {
+        double x[3];
+        grid->GetPoint(i, x);
+        for (int d = 0; d < 3; ++d)
+            data.nodes[i].x[d] = x[d];
+    }
+
+    auto p_array = grid->GetPointData()->GetArray("p");
+    for (int i = 0; i < N; ++i)
+        data.nodes[i].p = p_array->GetTuple1(i);
+
+    auto u_array = grid->GetPointData()->GetArray("U");
+    for (int i = 0; i < N; ++i) {
+        double u[3];
+        u_array->GetTuple(i, u);
+        for (int d = 0; d < 3; ++d)
+            data.nodes[i].u[d] = u[d];
+    }
+
+    auto nCells = grid->GetNumberOfCells();
+    data.elements.resize(nCells);
+
+    for (vtkIdType c = 0; c < grid->GetNumberOfCells(); ++c) {
+        vtkIdType npts;
+        const vtkIdType* pts;
+        grid->GetCellPoints(c, npts, pts);
+
+        std::vector<size_t> cell(npts);
+        for (vtkIdType i = 0; i < npts; ++i) cell[i] = pts[i];
+        data.elements[c] = cell;
+    }
+
+    data.compute_dual_geometry();
+    step++;
 }

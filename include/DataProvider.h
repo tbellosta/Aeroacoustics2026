@@ -116,4 +116,17 @@ public:
 
 };
 
+class VTUProvider {
+private:
+    double dt;
+public:
+    std::vector<std::string> filenames;
+    size_t step = 0;
+
+    VTUProvider(double dt_, const std::vector<std::string>& filenames_);
+
+    bool has_next() const;
+    void load_next(SurfaceData& data, double& time);
+};
+
 #endif //DATAPROVIDER_H

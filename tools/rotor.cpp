@@ -18,6 +18,9 @@
 #include <fstream>
 #include <iostream>
 #include <numeric>
+#include <regex>
+#include <sstream>
+#include <iomanip>
 #include <mpi.h>
 
 int main(int argc, char** argv) {
@@ -28,20 +31,48 @@ int main(int argc, char** argv) {
   MPI_Comm_rank(MPI_COMM_WORLD, &rank);
   MPI_Comm_size(MPI_COMM_WORLD, &size);
 
-  /** monopole characteristics (and FWH surface) **/
-  double A = 1.0;
-  double frq = 10.0;
-  double r = 1.0;
-  size_t nRefine = 2;
-
-  double src_dt = 1e-4;
-  size_t nsteps = 12000;
-  double M0_x = 0.9;
+  /** input data characteristics **/
+  double src_dt = 0.00006309165952;
+  size_t nsteps = 720;
+  double M0_x = 0.0;
 
   Vect3 M0 = Vect3(M0_x, 0, 0);
 
+  std::string fileBase = "/home/bellosta/HOVER/surface_flow_01080.vtu";
+
+  /** create a vector with the path to all snapshots **/
+  std::regex pattern(R"((.*?)(\d+)(\.[^.]+)$)");
+  std::smatch match;
+
+  std::vector<std::string> filenames;
+
+  if (std::regex_match(fileBase, match, pattern)) {
+
+    std::string prefix = match[1];      // "/home/bellosta/HOVER/surface_flow_"
+    std::string numberStr = match[2];   // "01080"
+    std::string suffix = match[3];      // ".vtu"
+
+    int start = std::stoi(numberStr);
+    int width = numberStr.size(); // preserve leading zeros
+
+    int delta = 1;
+    int nFiles = nsteps;
+
+    for (int i = 0; i < nFiles; ++i) {
+      std::ostringstream oss;
+      oss << prefix
+          << std::setw(width)
+          << std::setfill('0')
+          << (start + i * delta)
+          << suffix;
+
+      filenames.push_back(oss.str());
+    }
+  }
+
   /** This is the data provider **/
-  AnaliticalDipoleProvider provider(A,frq,src_dt,nsteps,r,nRefine,M0_x);
+  VTUProvider provider(src_dt, filenames);
+
 
   /** This stores the 3 snapshots and cycles them **/
   SnapshotBuffer buffer;
@@ -49,7 +80,7 @@ int main(int argc, char** argv) {
 
   /** the solver object **/
   FWHSolver solver;
-  solver.permeable = true; // tells the solver we want the permeable surface formulation
+  solver.permeable = false; // tells the solver we want the permeable surface formulation
   solver.M0_flow  = M0; // mean convection
 
   /** define a microphone array **/
@@ -107,7 +138,7 @@ int main(int argc, char** argv) {
   /** need to communicate data needed for printing the directivity file.
    * MPI_Gather **/
 
-  size_t nFields = 5;
+  size_t nFields = 3;
   std::vector<double> data_local(nMicsLocal*nFields);
 
 
@@ -131,31 +162,6 @@ int main(int argc, char** argv) {
    rms_fwh = std::sqrt(rms_fwh /= len);
    double spl_fwh = 20.0 * std::log10(std::max(rms_fwh,1e-30) / p_ref);
 
-   /** now compute the exact SPL and rms **/
-   double sum2_exact = 0.0, mean_exact = 0.0;
-   for (size_t i = obs.trim_start; i < obs.trim_end; i++) {
-     double t = obs.t0 + i * obs.dt;
-     double p = provider.exact_presure_at(obs.position[0],
-                                          obs.position[1],
-                                          obs.position[2],
-                                          t);
-     mean_exact += p;
-   }
-   mean_exact /= len;
-
-    for (size_t i = obs.trim_start; i < obs.trim_end; i++) {
-      double t = obs.t0 + i * obs.dt;
-      double p = provider.exact_presure_at(obs.position[0],
-                                           obs.position[1],
-                                           obs.position[2],
-                                           t);
-      sum2_exact += std::pow(p - mean_exact,2);
-    }
-    sum2_exact /= len;
-
-    double rms_exact = std::sqrt(sum2_exact);
-    double spl_exact = 20.0 * std::log10(std::max(rms_exact,1e-30) / p_ref);
-
     /** compute mic position **/
     size_t iMicGlobal = iMicStart + iMic;
     double theta_deg = off_deg + 360.0 * iMicGlobal / nMicsGlobal;
@@ -164,8 +170,6 @@ int main(int argc, char** argv) {
     data_local[iMic*nFields + 0] = theta_deg;
     data_local[iMic*nFields + 1] = spl_fwh;
     data_local[iMic*nFields + 2] = rms_fwh;
-    data_local[iMic*nFields + 3] = spl_exact;
-    data_local[iMic*nFields + 4] = rms_exact;
 
   }
 
@@ -221,22 +225,18 @@ int main(int argc, char** argv) {
 
   if (rank == 0) {
     std::ofstream out("directivity.dat");
-    out << "# theta[deg] SPL_FWH[dB] p_rms_FWH[Pa] SPL_exact[dB] p_rms_exact[Pa]\n";
+    out << "# theta[deg] SPL_FWH[dB] p_rms_FWH[Pa]\n";
 
     for (int iMic = 0; iMic < nMicsGlobal; ++iMic) {
       out << data_global[iMic*nFields + 0] << " "
           << data_global[iMic*nFields + 1] << " "
-          << data_global[iMic*nFields + 2] << " "
-          << data_global[iMic*nFields + 3] << " "
-          << data_global[iMic*nFields + 4] << "\n";
+          << data_global[iMic*nFields + 2] << "\n";
     }
 
     /** replicate fist mic to close directivity polar plot **/
     out << data_global[0*nFields + 0] << " "
         << data_global[0*nFields + 1] << " "
-        << data_global[0*nFields + 2] << " "
-        << data_global[0*nFields + 3] << " "
-        << data_global[0*nFields + 4] << "\n";
+        << data_global[0*nFields + 2] << "\n";
 
     out.close();
   }
@@ -256,16 +256,13 @@ int main(int argc, char** argv) {
     std::string padded = std::string(width - num.length(),'0') + num;
     std::string fname = "signal_" + padded + ".dat";
     std::ofstream signal(fname);
-    signal << "# t[s] p_FWH[Pa] p_exact[Pa]\n";
+    signal << "# t[s] p_FWH[Pa]\n";
 
     for (size_t i = obs.trim_start; i < obs.trim_end; i++) {
       double t = obs.t0 + i * obs.dt;
       double p_fwh = obs.signal[i];
-      double p_exact = provider.exact_presure_at(obs.position[0],
-                                                 obs.position[1],
-                                                 obs.position[2],
-                                                 t);
-      signal << t << " " << p_fwh << " " << p_exact << "\n";
+
+      signal << t << " " << p_fwh << "\n";
     }
     signal.close();
 
