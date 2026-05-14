@@ -25,12 +25,18 @@ int main(int argc, char** argv) {
     MPI_Comm_size(MPI_COMM_WORLD, &size);
 
     // Total problem size
-    const int N = 1000000;
+    const int N = 10000000;
 
     // Domain decomposition (block)
     int chunk = N / size;
     int start = rank * chunk;
+
+
     int end   = (rank == size - 1) ? N : start + chunk;
+
+    /** same as ternary operator above **/
+    // if (rank == size - 1) end = N;
+    // else end = start + chunk;
 
     double local_sum = 0.0;
 
