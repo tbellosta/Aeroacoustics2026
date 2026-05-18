@@ -34,7 +34,7 @@ std::vector<Vect3> generateHemisphere(
 * FWH surface snapshots **/
 std::vector<std::string> generateFileNames(
     const std::string& firstFileName,
-    double delta, double nFiles
+    size_t delta, size_t nFiles
 );
 
 int main(int argc, char** argv) {
@@ -72,8 +72,11 @@ int main(int argc, char** argv) {
 
   /** define a microphone array **/
   double R = 10.0;
-  auto pnts = generateHemisphere(R, 18, 72);
-  size_t nMicsGlobal = pnts.size();
+  /** full half-sphere directivity **/
+//  auto pnts = generateHemisphere(R, 18, 72);
+//  size_t nMicsGlobal = pnts.size();
+  /** single arch directivity **/
+  size_t nMicsGlobal = 72;
   size_t nMicsLocal;
 
   /** define small angular offset so that mics are not aligned with x-axis **/
@@ -91,13 +94,13 @@ int main(int argc, char** argv) {
     Observer obs;
 
     /** uncomment for simple microphone arch in xz plane **/
-//    double theta = off_rad + 2.0 * M_PI * m / nMicsGlobal;
-//    obs.position = Vect3(R * std::cos(theta),
-//                         0.0,
-//                         R * std::sin(theta));
+    double theta = off_rad + 2.0 * M_PI * m / nMicsGlobal;
+    obs.position = Vect3(R * std::cos(theta),
+                         0.0,
+                         R * std::sin(theta));
 
     /** This computes the whole half sphere directivity **/
-    obs.position = pnts[m];
+//    obs.position = pnts[m];
 
     obs.dt = 1 * src_dt;
     solver.observers.push_back(obs);
