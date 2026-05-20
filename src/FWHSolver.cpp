@@ -92,13 +92,22 @@ void FWHSolver::process(const SurfaceData& prev,
 
   /** Main loop in the FWH computation **/
   size_t nNodes = curr.nodes.size();
+  #pragma omp parallel for collapse(2)
   for (size_t iNode = 0; iNode < nNodes; iNode++) {
 
-    const Node& n_prev = prev.nodes[iNode];
-    const Node& n_curr = curr.nodes[iNode];
-    const Node& n_next = next.nodes[iNode];
+    // const Node& n_prev = prev.nodes[iNode];
+    // const Node& n_curr = curr.nodes[iNode];
+    // const Node& n_next = next.nodes[iNode];
 
-    for (auto& obs : observers) {
+    for (size_t iMic = 0; iMic < observers.size(); ++iMic) {
+    // for (auto& obs : observers) {
+
+      const Node& n_prev = prev.nodes[iNode];
+      const Node& n_curr = curr.nodes[iNode];
+      const Node& n_next = next.nodes[iNode];
+
+
+      auto& obs = observers[iMic];
 
       /** compute the FWH integral and then assign the computed value
        * at the correct time in observer time history.

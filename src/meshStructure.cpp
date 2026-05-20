@@ -103,7 +103,9 @@ void Observer::add(const double value, const double t_arrival) {
 
   const double alpha = idx - i;
 
+  #pragma omp atomic
   signal[i]   += value * (1.0 - alpha);
+  #pragma omp atomic
   signal[i+1] += value * alpha;
 }
 
