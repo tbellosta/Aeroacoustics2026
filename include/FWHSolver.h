@@ -16,6 +16,7 @@
 #define FWHSOLVER_H
 
 #include <vector>
+#include <utility>
 
 #include "geometry.h"
 #include "meshStructure.h"
@@ -24,9 +25,9 @@
 class FWHSolver {
  public:
 
-   const double c0   = 340.0;
-   const double p0   = 101325.0;
-   const double rho0 = 1.2;
+   double c0   = 340.0;
+   double p0   = 101325.0;
+   double rho0 = 1.2;
 
    Vect3 M0_flow;
    bool permeable = false;
@@ -46,7 +47,7 @@ class FWHSolver {
 
 private:
 
-    double compute_FWH_F1A(const Node& n_prev,
+    std::pair<double,double> compute_FWH_F1A(const Node& n_prev,
                            const Node& n_curr,
                            const Node& n_next,
                            const Vect3& obs,

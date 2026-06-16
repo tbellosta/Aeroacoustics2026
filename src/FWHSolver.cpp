@@ -114,8 +114,11 @@ void FWHSolver::process(const SurfaceData& prev,
        * FWH integral computation is computed at source/retarded time
        * whereas we want the signal at the observer time. **/
 
-      double pprime = compute_FWH_F1A(n_prev,n_curr,n_next,
-                                      obs.position,dt);
+      std::pair<double,double> pprime = compute_FWH_F1A(n_prev,
+                                                        n_curr,
+                                                        n_next,
+                                                        obs.position,
+                                                        dt);
 
 
       /** Assign the computed pressure at the observer time **/
@@ -128,7 +131,9 @@ void FWHSolver::process(const SurfaceData& prev,
       double delay = (std::sqrt(D2*beta2 + Mr*Mr) - Mr) / (beta2 * c0);
 
       double tArrival = tCurr + delay;
-      obs.add(pprime*dt/obs.dt, tArrival);
+      pprime.first *= dt/obs.dt;
+      pprime.second *= dt/obs.dt;
+      obs.add(pprime, tArrival);
 
     }
 
@@ -140,7 +145,7 @@ void FWHSolver::process(const SurfaceData& prev,
 }
 
 
-double FWHSolver::compute_FWH_F1A(const Node& n_prev,
+std::pair<double,double> FWHSolver::compute_FWH_F1A(const Node& n_prev,
                            const Node& n_curr,
                            const Node& n_next,
                            const Vect3& obs,
@@ -271,7 +276,24 @@ double FWHSolver::compute_FWH_F1A(const Node& n_prev,
   const double L2 = (Fr - FM) / (R*R*denom*denom);
   const double L3 = Fr * K / (R*R * std::pow(denom,3)*c0);
 
-  return (T1+T2+L1+L2+L3) * S / (4*M_PI);
+  // ======================
+  // Per-node term gating
+  //
+  // Full          -> thickness + loading
+  // ThicknessOnly -> thickness only  (VL upper/lower faces)
+  // LoadingOnly   -> loading only     (VL mean-panel dipole)
+  //
+  // This lets a single uniform surface carry the VL decomposition used
+  // by DUST: thickness from the two physical faces, loading from the mean
+  // panel, with neither contaminating the other.
+  // ======================
+  const double thickness = T1 + T2;
+  const double loading   = L1 + L2 + L3;
 
+  double contribL = 0.0, contribT = 0.0;
+  if (n_curr.role != NodeRole::LoadingOnly)   contribT += thickness;
+  if (n_curr.role != NodeRole::ThicknessOnly) contribL += loading;
+
+  return {contribL * (S / (4.0 * M_PI)), contribT * (S / (4.0 * M_PI))};
 
 }

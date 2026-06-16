@@ -90,19 +90,23 @@ int main() {
   for (size_t iMic = 0; iMic < nMics; iMic++) {
     /** get the time history at the mic and compute the rms **/
    auto& obs = solver.observers[iMic];
+    std::vector<double> pprime = obs.signalL;
+    for (size_t iSampl = 0; iSampl < pprime.size(); iSampl++) {
+      pprime[iSampl] += obs.signalT[iSampl];
+    }
 
    double rms_fwh = 0, mean_fwh = 0;
    size_t len = 0;
 
    /** compute the signal mean **/
    for (size_t i = obs.trim_start; i < obs.trim_end; i++) {
-     mean_fwh += obs.signal[i];
+     mean_fwh += pprime[i];
      ++len;
    }
    mean_fwh /= len;
 
    for (size_t i = obs.trim_start; i < obs.trim_end; i++)
-    rms_fwh += std::pow(obs.signal[i] - mean_fwh,2);
+    rms_fwh += std::pow(pprime[i] - mean_fwh,2);
 
    rms_fwh = std::sqrt(rms_fwh /= len);
    double SPL_fwh = 20.0 * std::log10(std::max(rms_fwh,1e-30) / p_ref);
@@ -150,7 +154,7 @@ int main() {
 
     for (size_t i = obs.trim_start; i < obs.trim_end; i++) {
       double t = obs.t0 + i * obs.dt;
-      double p_fwh = obs.signal[i];
+      double p_fwh = pprime[i];
       double p_exact = provider.exact_presure_at(obs.position[0],
                                                  obs.position[1],
                                                  obs.position[2],

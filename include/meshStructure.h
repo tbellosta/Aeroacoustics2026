@@ -21,6 +21,12 @@
 
 typedef std::vector<std::vector<size_t>> connectivity;
 
+// Which F1A source terms a node contributes.
+//   Full          -> thickness (T1,T2) + loading (T3,T4,T5)   [default]
+//   ThicknessOnly -> thickness only   (e.g. VL upper/lower faces)
+//   LoadingOnly   -> loading only      (e.g. VL mean panel dipole)
+enum class NodeRole { Full, ThicknessOnly, LoadingOnly };
+
 struct Node {
   Vect3 x; // position
   Vect3 dS; // dual area vector
@@ -28,6 +34,8 @@ struct Node {
   double p;
   Vect3 u;
   double rho;
+
+  NodeRole role = NodeRole::Full;
 };
 
 class SurfaceData {
@@ -44,12 +52,12 @@ public:
   Vect3 position;
 
   double t0, dt;
-  std::vector<double> signal;
+  std::vector<double> signalL, signalT;
 
   size_t trim_start, trim_end;
 
   void initialize(double t0_, double dt_, size_t Nt_);
-  void add(double value, double t_arrival);
+  void add(const std::pair<double,double>& value, double t_arrival);
 
 };
 

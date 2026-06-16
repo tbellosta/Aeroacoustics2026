@@ -18,6 +18,7 @@
 #include "meshStructure.h"
 
 #include <string>
+#include <sstream>
 
 /** Classes that feed data into out SnapshotBuffer objects **/
 
@@ -129,6 +130,73 @@ public:
 
     bool has_next() const;
     void load_next(SurfaceData& data, double& time);
+};
+
+// ====================================================================
+//  PanelCSVProvider
+//
+//  Reads aeroacoustic surface data exported by a vortex-lattice (VL)
+//  panel code. One file = one time snapshot.
+//
+//  The VL surface is a thin mean sheet: pressure (the load dp across
+//  the sheet) lives on the mean panel, but a thin sheet carries no
+//  thickness. To recover thickness we reconstruct the actual *closed*
+//  wetted surface from the upper/lower sub-panel geometry the exporter
+//  provides, and emit TWO nodes per element (upper face + lower face).
+//
+//  On that closed surface (permeable = false):
+//    - thickness  -> from the closed geometry + flight-frame convection
+//    - loading    -> surface-pressure dipole F = (p - p0) n, with the
+//                    mean-panel load dp split symmetrically onto the
+//                    two faces:  p_u = p0 - dp/2,  p_l = p0 + dp/2.
+//
+//  dS is set directly (n * area); there is no connectivity, so
+//  compute_dual_areas() is intentionally NOT called.
+//
+//  Node ordering (upper, lower) per element, in file order, is the
+//  same in every snapshot, so the solver's per-node prev/curr/next
+//  finite differences stay consistent.
+//
+//  File format (comma separated, Fortran "E+000" exponents):
+//    # banner
+//    # Element,Time,Pressure,Density,Sound speed,Dynamic viscosity,Flow velocity
+//    nElem, time, p_ref, rho_ref, c_ref, mu, Ux, Uy, Uz
+//    # cx,cy,cz,nx,ny,nz,area,rho,pressure,rhoux,rhouy,rhouz,svx,svy,svz,
+//    #   cx_u,cy_u,cz_u,cx_l,cy_l,cz_l,nx_u,ny_u,nz_u,nx_l,ny_l,nz_l,
+//    #   area_u,area_l,svx_u,svy_u,svz_u,svx_l,svy_l,svz_l   (35 fields)
+//    <element rows...>
+// ====================================================================
+class PanelCSVProvider {
+public:
+    std::vector<std::string> filenames;
+    int current = 0;
+    double dt;
+
+    // Reference state, read from each file's metadata row.
+    // Pull these onto the solver after the first load_next().
+    double c0   = 340.0;
+    double rho0 = 1.0;
+    double p0   = 0.0;
+    Vect3   U_inf;            // freestream velocity vector
+
+    PanelCSVProvider(double dt_, const std::vector<std::string>& filenames_) : dt(dt_), filenames(filenames_) {};
+
+    bool has_next() const { return current < (int)filenames.size(); }
+    void load_next(SurfaceData& data, double& time);
+
+private:
+
+    static std::vector<double> parse_csv(const std::string& line) {
+        std::vector<double> vals;
+        std::stringstream ss(line);
+        std::string tok;
+        while (std::getline(ss, tok, ',')) {
+            size_t a = tok.find_first_not_of(" \t\r\n");
+            if (a == std::string::npos) continue;
+            vals.push_back(std::stod(tok.substr(a)));
+        }
+        return vals;
+    }
 };
 
 #endif //DATAPROVIDER_H

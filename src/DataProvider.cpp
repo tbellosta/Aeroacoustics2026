@@ -13,6 +13,8 @@
 //
 //============================================================
 
+#include <mpi.h>
+
 #include <vtkXMLUnstructuredGridReader.h>
 #include <vtkUnstructuredGrid.h>
 #include <vtkPointData.h>
@@ -505,3 +507,98 @@ void VTUProvider::load_next(SurfaceData& data, double& time) {
     data.compute_dual_geometry();
     step++;
 }
+
+void PanelCSVProvider::load_next(SurfaceData& data, double& time) {
+
+        int rank;
+        MPI_Comm_rank(MPI_COMM_WORLD, &rank);
+
+        time = current * dt;
+        const std::string& fname = filenames[current++];
+
+        std::ifstream in(fname);
+        if (!in)
+            throw std::runtime_error("PanelCSVProvider: cannot open " + fname);
+
+        data.nodes.clear();
+        data.elements.clear();   // dS set directly; no connectivity needed
+
+        std::string line;
+        bool have_meta = false;
+
+        while (std::getline(in, line)) {
+
+            size_t s = line.find_first_not_of(" \t\r\n");
+            if (s == std::string::npos) continue;   // blank line
+            if (line[s] == '#')         continue;   // banner / column header
+
+            std::vector<double> v = parse_csv(line);
+
+            // --- first numeric line is the metadata row ---
+            if (!have_meta) {
+                if (v.size() < 9)
+                    throw std::runtime_error("PanelCSVProvider: bad metadata in " + fname);
+
+                // time  = v[1];
+                p0    = v[2];
+                rho0  = v[3];
+                c0    = v[4];
+                U_inf = Vect3(v[6], v[7], v[8]);
+
+                have_meta = true;
+                continue;
+            }
+
+            // --- element row (35 fields) ---
+            if (v.size() < 35)
+                throw std::runtime_error("PanelCSVProvider: short element row in " + fname);
+
+            double rho = v[7];
+            double dp  = v[8];          // load across the sheet
+
+            // --- mean panel: LOADING only ---
+            Node mean;
+            mean.x    = Vect3(v[0], v[1], v[2]);
+            mean.dS   = Vect3(v[3], v[4], v[5]) * v[6];     // n_mean * area_mean
+            mean.p    = p0 - dp;
+            mean.u    = Vect3(v[12], v[13], v[14]);
+            mean.rho  = rho;
+            mean.role = NodeRole::LoadingOnly;
+
+            // --- upper face: THICKNESS only ---
+            Node up;
+            up.x    = Vect3(v[15], v[16], v[17]);
+            up.dS   = Vect3(v[21], v[22], v[23]) * v[27];   // n_u * area_u
+            up.p    = p0;                                  // no loading
+            up.u    = Vect3(v[29], v[30], v[31]);
+            up.rho  = rho;
+            up.role = NodeRole::ThicknessOnly;
+
+            // --- lower face: THICKNESS only ---
+            Node lo;
+            lo.x    = Vect3(v[18], v[19], v[20]);
+            lo.dS   = Vect3(v[24], v[25], v[26]) * v[28];   // n_l * area_l
+            lo.p    = p0;
+            lo.u    = Vect3(v[32], v[33], v[34]);
+            lo.rho  = rho;
+            lo.role = NodeRole::ThicknessOnly;
+
+            data.nodes.push_back(mean);
+            data.nodes.push_back(up);
+            data.nodes.push_back(lo);
+        }
+
+        if (!have_meta)
+            throw std::runtime_error("PanelCSVProvider: no data in " + fname);
+
+        // --- progress (updates in place on stderr) ---
+        if (rank == 0)
+        {
+            int total = (int)filenames.size();
+            std::cerr << "\rPanelCSV progress: " << (100 * current / total) << "% "
+                    << "(" << current << "/" << total << ")" << std::flush;
+            if (current == total)
+                std::cerr << std::endl;
+        }
+
+    }

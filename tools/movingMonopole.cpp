@@ -100,19 +100,23 @@ int main() {
   for (size_t iMic : loop) {
     /** get the time history at the mic and compute the rms **/
    auto& obs = solver.observers[iMic];
+    std::vector<double> pprime = obs.signalL;
+    for (size_t iSampl = 0; iSampl < pprime.size(); iSampl++) {
+      pprime[iSampl] += obs.signalT[iSampl];
+    }
 
    double rms_fwh = 0, mean_fwh = 0;
    size_t len = 0;
 
    /** compute the signal mean **/
    for (size_t i = obs.trim_start; i < obs.trim_end; i++) {
-     mean_fwh += obs.signal[i];
+     mean_fwh += pprime[i];
      ++len;
    }
    mean_fwh /= len;
 
    for (size_t i = obs.trim_start; i < obs.trim_end; i++)
-    rms_fwh += std::pow(obs.signal[i] - mean_fwh,2);
+    rms_fwh += std::pow(pprime[i] - mean_fwh,2);
 
    rms_fwh = std::sqrt(rms_fwh /= len);
    double SPL_fwh = 20.0 * std::log10(std::max(rms_fwh,1e-30) / p_ref);
@@ -132,12 +136,13 @@ int main() {
     std::string padded = std::string(width - num.length(),'0') + num;
     std::string fname = "signal_" + padded + ".dat";
     std::ofstream signal(fname);
-    signal << "# t[s] p_FWH[Pa]\n";
+    signal << "# t[s] p_FWH_l[Pa] p_FWH_t[Pa]\n";
 
     for (size_t i = obs.trim_start; i < obs.trim_end; i++) {
       double t = obs.t0 + i * obs.dt;
-      double p_fwh = obs.signal[i];
-      signal << t << " " << p_fwh << "\n";
+      double p_fwh_l = obs.signalL[i];
+      double p_fwh_t = obs.signalT[i];
+      signal << t << " " << p_fwh_l << " " << p_fwh_t << "\n";
     }
     signal.close();
 
